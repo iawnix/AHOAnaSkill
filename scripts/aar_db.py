@@ -374,7 +374,7 @@ class DB:
         )
 
     def run_custom_script(self, script_path: str | Path) -> dict[str, Any]:
-        archive_path = _archive_custom_script(script_path)
+        archive_path = _archive_custom_script(script_path, self.db_path)
         os.environ["AHO_DB_PATH"] = str(self.db_path.resolve())
         os.environ["AHO_SKILL_DIR"] = str(SKILL_DIR.resolve())
         sys.path.insert(0, str((SKILL_DIR / "scripts").resolve()))
@@ -455,14 +455,22 @@ def _sdf_index_path_for_db(db_path: str | Path) -> Path:
     return db_resolved.parent / "sdf_index.json"
 
 
-def _archive_custom_script(script_path: str | Path) -> Path:
+def _custom_scripts_dir_for_db(db_path: str | Path) -> Path:
+    db_resolved = Path(db_path).resolve()
+    if db_resolved == DEFAULT_DB.resolve():
+        return DEFAULT_CUSTOM_SCRIPTS_DIR
+    return db_resolved.parent / "scripts"
+
+
+def _archive_custom_script(script_path: str | Path, db_path: str | Path = DEFAULT_DB) -> Path:
     src = Path(script_path).resolve()
     if not src.exists():
         raise FileNotFoundError(f"Custom script not found: {src}")
-    DEFAULT_CUSTOM_SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
-    if src.parent.resolve() == DEFAULT_CUSTOM_SCRIPTS_DIR.resolve():
+    archive_dir = _custom_scripts_dir_for_db(db_path)
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    if src.parent.resolve() == archive_dir.resolve():
         return src
-    dst = DEFAULT_CUSTOM_SCRIPTS_DIR / f"{utc_now().replace(':', '').replace('+', 'Z')}_{src.name}"
+    dst = archive_dir / f"{utc_now().replace(':', '').replace('+', 'Z')}_{src.name}"
     shutil.copy2(src, dst)
     return dst
 

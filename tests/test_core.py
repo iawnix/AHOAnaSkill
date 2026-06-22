@@ -13,6 +13,7 @@ SCRIPTS = ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from aar_db import DB
+import aar_feat
 from aar_feat import RDKitFeaturizer
 from aar_mol import MolReader, Renderer, StructQuery
 
@@ -127,3 +128,69 @@ def test_missing_sdf_is_blocking(sample_dataset, tmp_path: Path):
     (sdf_dir / "CAT-2.sdf").unlink()
     with pytest.raises(FileNotFoundError, match="Missing required SDF"):
         DB.import_csv(csv_path, sdf_dir, tmp_path / "aho.sqlite")
+
+
+def test_featurizer_falls_back_when_modern_cip_fails(sample_dataset, tmp_path: Path, monkeypatch):
+    csv_path, sdf_dir = sample_dataset
+    db_path = tmp_path / "aho.sqlite"
+    DB.import_csv(csv_path, sdf_dir, db_path)
+
+    original = aar_feat.Chem.FindMolChiralCenters
+
+    def flaky_find_chiral_centers(mol, includeUnassigned=True, useLegacyImplementation=False):
+        if not useLegacyImplementation:
+            raise RuntimeError("modern CIP failed")
+        return original(
+            mol,
+            includeUnassigned=includeUnassigned,
+            useLegacyImplementation=useLegacyImplementation,
+        )
+
+    monkeypatch.setattr(aar_feat.Chem, "FindMolChiralCenters", flaky_find_chiral_centers)
+    featurizer = RDKitFeaturizer(db_path)
+    try:
+        summary = featurizer.compute_all_new(family="rdkit_count")
+        assert summary["n_molecules"] == 6
+    finally:
+        featurizer.close()
+
+    with DB(db_path) as db:
+        rows = db.query_with_features(families=["rdkit_count"])
+        assert "rea__rdkit_count__n_stereo_centers" in rows[0]
+
+
+def test_custom_script_archive_uses_db_local_scripts_dir(tmp_path: Path):
+    db_path = tmp_path / "analysis" / "aho.sqlite"
+    script_path = tmp_path / "custom_rule.py"
+    script_path.write_text(
+        "\n".join(
+            [
+                "def run(db_path=None, skill_dir=None):",
+                "    return {",
+                "        'features': [],",
+                "        'meta': {",
+                "            'family_topic': 'custom_test',",
+                "            'description': 'test custom metadata',",
+                "            'hypothesis': 'custom scripts archive next to non-default db',",
+                "            'verdict': 'supported',",
+                "            'n_molecules': 0,",
+                "        },",
+                "    }",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with DB(db_path) as db:
+        result = db.run_custom_script(script_path)
+        meta = db.conn.execute(
+            "SELECT family_topic, script_path FROM custom_features_meta WHERE family_topic = ?",
+            ("custom_test",),
+        ).fetchone()
+
+    archive_path = Path(result["script"])
+    assert archive_path.parent == db_path.parent / "scripts"
+    assert archive_path.exists()
+    assert result["registered_meta"] is True
+    assert meta["script_path"] == str(archive_path)
