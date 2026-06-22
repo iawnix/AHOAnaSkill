@@ -1,0 +1,4 @@
+interface:
+  display_name: "AHOAnaSkill"
+  short_description: "Analyze asymmetric hydrogenation SAR data"
+  default_prompt: "Use $ahoa-na-skill to ingest AHO experiment CSV/SDF data and produce a SAR analysis report."

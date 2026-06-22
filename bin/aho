@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+SKILL_DIR="$(cd "$(dirname "$SELF")/.." && pwd)"
+SCRIPTS="$SKILL_DIR/scripts"
+ENV_NAME="AHOAnaSkill"
+
+_py() {
+    if [[ "${AHO_NO_CONDA:-0}" == "1" ]]; then
+        PYTHONPATH="$SCRIPTS${PYTHONPATH:+:$PYTHONPATH}" python3 "$@"
+    else
+        conda run --no-capture-output -n "$ENV_NAME" python "$@"
+    fi
+}
+
+CMD="${1:-help}"
+if [[ $# -gt 0 ]]; then
+    shift
+fi
+
+case "$CMD" in
+    ingest)         _py "$SCRIPTS/ingest.py" "$@" ;;
+    db)             _py "$SCRIPTS/aar_db.py" "$@" ;;
+    mol)            _py "$SCRIPTS/aar_mol.py" "$@" ;;
+    feat)           _py "$SCRIPTS/aar_feat.py" "$@" ;;
+    render)         _py "$SCRIPTS/aar_mol.py" render "$@" ;;
+    overlay)        _py "$SCRIPTS/aar_mol.py" overlay "$@" ;;
+    smarts)         _py "$SCRIPTS/aar_mol.py" smarts-highlight "$@" ;;
+    run-custom)     _py "$SCRIPTS/aar_db.py" run-custom-script "$@" ;;
+    stats)          _py "$SCRIPTS/aar_db.py" stats "$@" ;;
+    check-env)      _py "$SCRIPTS/check_env.py" "$@" ;;
+    help|--help|-h) sed -n '/^### aho commands/,$p' "$SKILL_DIR/README.md" || true ;;
+    *) echo "[x] Unknown command: $CMD; run 'aho help'"; exit 1 ;;
+esac
