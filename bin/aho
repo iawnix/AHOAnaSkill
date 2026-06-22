@@ -4,13 +4,54 @@ set -euo pipefail
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 SKILL_DIR="$(cd "$(dirname "$SELF")/.." && pwd)"
 SCRIPTS="$SKILL_DIR/scripts"
-ENV_NAME="AHOAnaSkill"
+RUNTIME_ENV_FILE="$SKILL_DIR/.aho-runtime.env"
+ENV_NAME="${AHO_ENV_NAME:-AHOAnaSkill}"
+
+if [[ -f "$RUNTIME_ENV_FILE" ]]; then
+    # shellcheck source=/dev/null
+    source "$RUNTIME_ENV_FILE"
+    ENV_NAME="${AHO_ENV_NAME:-$ENV_NAME}"
+fi
+
+find_conda() {
+    if [[ -n "${AHO_CONDA_EXE:-}" && -x "$AHO_CONDA_EXE" ]]; then
+        printf '%s\n' "$AHO_CONDA_EXE"
+        return 0
+    fi
+    if command -v conda >/dev/null 2>&1; then
+        command -v conda
+        return 0
+    fi
+
+    local candidate
+    local candidates=(
+        "$HOME/soft/conda"/*/bin/conda
+        "$HOME/miniforge3/bin/conda"
+        "$HOME/mambaforge/bin/conda"
+        "$HOME/miniconda3/bin/conda"
+        "$HOME/anaconda3/bin/conda"
+        "/opt/conda/bin/conda"
+    )
+    for candidate in "${candidates[@]}"; do
+        if [[ -x "$candidate" ]]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
 
 _py() {
     if [[ "${AHO_NO_CONDA:-0}" == "1" ]]; then
         PYTHONPATH="$SCRIPTS${PYTHONPATH:+:$PYTHONPATH}" python3 "$@"
     else
-        conda run --no-capture-output -n "$ENV_NAME" python "$@"
+        local conda_exe
+        conda_exe="$(find_conda)" || {
+            echo "[x] conda is not available for AHOAnaSkill."
+            echo "    Run '$SKILL_DIR/install.sh' or set AHO_CONDA_EXE=/path/to/conda."
+            exit 127
+        }
+        "$conda_exe" run --no-capture-output -n "$ENV_NAME" python "$@"
     fi
 }
 

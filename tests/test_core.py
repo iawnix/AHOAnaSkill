@@ -93,6 +93,8 @@ def test_import_features_query_and_render(sample_dataset, tmp_path: Path):
     db_path = tmp_path / "aho.sqlite"
     summary = DB.import_csv(csv_path, sdf_dir, db_path)
     assert summary["n_rows"] == 2
+    assert Path(summary["sdf_index"]) == tmp_path / "sdf_index.json"
+    assert (tmp_path / "sdf_index.json").exists()
 
     with DB(db_path) as db:
         stats = db.stats()

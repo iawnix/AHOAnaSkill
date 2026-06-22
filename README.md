@@ -11,6 +11,11 @@ The project is not installed into `~/.codex/skills` or `~/.claude/skills` by def
 export PATH="$PWD/bin:$PATH"
 ```
 
+`install.sh` creates or updates the Conda environment named `AHOAnaSkill`,
+then writes `.aho-runtime.env` in this skill root. `bin/aho` reads that file and
+uses the recorded Conda executable and environment by default, so normal use
+should call `aho ...` without `AHO_NO_CONDA=1`.
+
 For development without the conda environment:
 
 ```bash

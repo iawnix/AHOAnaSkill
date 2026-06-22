@@ -34,6 +34,8 @@ aho db query-with-features --json
 
 Do not call `python scripts/*.py` in normal use, because that can bypass the conda environment. For local development before the conda env exists, `AHO_NO_CONDA=1 bin/aho ...` is acceptable.
 
+Run `./install.sh` first in the skill root when setting up a fresh copy. The installer creates or updates the `AHOAnaSkill` Conda environment and writes `.aho-runtime.env`; `bin/aho` reads that file and uses the installed environment by default.
+
 ## Workflow
 
 1. Check the environment:

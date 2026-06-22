@@ -17,6 +17,7 @@ reports/scripts/*
 
 *.log
 .env
+.aho-runtime.env
 .venv/
 venv/
 dist/

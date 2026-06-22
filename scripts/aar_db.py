@@ -230,12 +230,14 @@ class DB:
             for row in rows:
                 db.upsert_reaction(row, sdf_index, source=str(csv_path.resolve()))
             db.conn.commit()
-        SDF_INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
-        SDF_INDEX_PATH.write_text(json.dumps(sdf_index, indent=2, sort_keys=True), encoding="utf-8")
+        sdf_index_path = _sdf_index_path_for_db(db_path)
+        sdf_index_path.parent.mkdir(parents=True, exist_ok=True)
+        sdf_index_path.write_text(json.dumps(sdf_index, indent=2, sort_keys=True), encoding="utf-8")
         return {
             "csv": str(csv_path.resolve()),
             "sdf_dir": str(Path(sdf_dir).resolve()),
             "db": str(Path(db_path).resolve()),
+            "sdf_index": str(sdf_index_path.resolve()),
             "n_rows": len(rows),
             "n_sdf_indexed": len(sdf_index),
         }
@@ -444,6 +446,13 @@ def _find_missing_sdfs(rows: list[dict[str, str]], sdf_index: dict[str, str]) ->
                 missing.append(key)
                 seen.add(key)
     return missing
+
+
+def _sdf_index_path_for_db(db_path: str | Path) -> Path:
+    db_resolved = Path(db_path).resolve()
+    if db_resolved == DEFAULT_DB.resolve():
+        return SDF_INDEX_PATH
+    return db_resolved.parent / "sdf_index.json"
 
 
 def _archive_custom_script(script_path: str | Path) -> Path:
